@@ -60,6 +60,150 @@ ONOFFCode = \
         None: "(power status unknown)",
     }
 
+# ______________________________________________________________________________
+STX = b'\x02'
+ETX = b'\x03'
+
+InptuExtCode = \
+    {
+        0: "no mean",
+        1: "D-SUB",
+        2: "Reserved",
+        3: "HDMI1",
+        4: "HDMI3",
+        5: "composite",
+        7: "S-video",
+        8: "option",
+        9: "DisplayPort",
+        12: "YPbPr",
+        18: "HDMI2",
+    }
+
+LanguageCode = \
+    {
+        1: "english",
+        2: "french",
+        3: "german",
+        4: "dutch",
+        5: "polish",
+        6: "czech",
+        7: "italian",
+        8: "russian",
+        9: "japanese",
+        10: "chinese",
+        11: "chinese (traditional)",
+    }
+
+Page00OPCode = \
+    {
+        0x04: ("factory reset", 0),
+        0x06: ("screen reset", 0),
+        0x08: ("picture reset", 0),
+        0x0e: ("clock", 1),
+        0x0c: ("color temperature (2)", 0),
+        0x10: ("brightness", 1),
+        0x12: ("contrast", 1),
+        0x14: ("reserved", 0),
+        0x16: ("UNDOCUMENTED1", 1),
+        0x18: ("UNDOCUMENTED2", 1),
+        0x1a: ("UNDOCUMENTED3", 1),
+        0x20: ("H position", 1),
+        0x30: ("V position", 1),
+        0x3e: ("clock phase", 1),
+        0x60: ("input", 1),
+        0x62: ("volume", 1),
+        0x68: ("language", 1),
+        0x8c: ("sharpness", 1),
+        0x8d: ("mute", 1),
+        0x92: ("black level", 0),
+        0xc9: ("UNDOCUMENTED4", 1),
+        0xe3: ("control lock", 1),
+        0xfc: ("OSD turn off", 1),
+    }
+#        0xxx: "configuration reset",
+Name2PageOPCode = {}
+for (k, v) in Page00OPCode.items():
+    Name2PageOPCode[v[0]] = (0x00, k)
+
+GammaSelectionCode = \
+    {
+        1: "native",
+        4: "gamma 2.2",
+        5: "option",
+        7: "S gamma",
+        8: "gamma 2.4",
+    }
+
+ZoomModeCode = \
+    {
+        1: "real",
+        2: "custom",
+        5: "dynamic",
+        6: "normal",
+        7: "full",
+    }
+
+ColorSystemCode = \
+    {
+        1: "NTSC",
+        2: "PAL",
+        3: "SECAM",
+        4: "auto",
+        5: "4.43NTSC",
+        6: "PAL-60",
+    }
+
+SideColorCode = \
+    {
+        0: "black",
+        1: "middle",
+        2: "white",
+    }
+
+OSDRotationCode = \
+    {
+        0: "off",
+        1: "90",
+        2: "H mirror",
+        3: "V mirror",
+        4: "180",
+        5: "270",
+    }
+
+PIPCOde = \
+    {
+        1: "off",
+        2: "PIP",
+        4: "still",
+    }
+
+Page02OPCode = \
+    {
+        0x1b: ("UNDOCUMENTED1", 1),
+        0x21: ("noise reduction", 0),
+        0x22: ("color system", 0),
+        0x2f: ("UNDOCUMENTED2", 1),
+        0x39: ("OSD H position", 1),
+        0x3a: ("OSD V position", 1),
+        0x3f: ("monitor ID", 1),
+        0x40: ("IR control", 1),
+        0x42: ("OSD rotation", 1),
+        0x69: ("gamma selection", 0),
+        0x72: ("PIP size", 1),
+        0x73: ("PIP PBP", 1),
+        0x74: ("PIP source", 1),
+        0x75: ("PIP right", 1),
+        0x76: ("PIP bottom", 1),
+        0xcf: ("zoom mode", 1),
+        0xde: ("motion", 0),
+        0xe0: ("side border color", 0),
+        0xe5: ("advanced option reset", 1),
+    }
+#        0xxx: "PIP audio",
+#        0xxx: "PIP reset",
+for (k, v) in Page02OPCode.items():
+    Name2PageOPCode[v[0]] = (0x02, k)
+
 
 class X4071():
     def __init__(self, TTY):
@@ -169,6 +313,86 @@ class X4071():
         Answer = self.Ser.read(self.Ser.in_waiting)
         return Cmd == Answer
 
+# ______________________________________________________________________________
+    def extended_has_answer(self, Page, OPCode):
+        Answer = self.send_extended_cmd(b'A0C', b'%02x%02x' % (Page, OPCode))
+        return Answer != b'BE'
+
+    def extended_get(self, Page, OPCode):
+        Answer = self.send_extended_cmd(b'A0C', b'%02x%02x' % (Page, OPCode))
+        Parsed = self.parse_get_parameter_replay(Answer)
+        if Parsed is None:
+            return None
+        (PageOut, OPCodeOut, Type, MaxValue, CurrentValue) = Parsed
+        if Page != PageOut or OPCode != OPCodeOut:
+            print("wrong page, opcode")
+#            return None
+        return (MaxValue, CurrentValue)
+
+    def extended_get_from_name(self, Name):
+        (Page, OPCode) = Name2PageOPCode[Name]
+        return self.extended_get(Page, OPCode)
+
+    def extended_set(self, Page, OPCode, Value, delay=0.08):
+        Answer = self.send_extended_cmd(
+            b'A0E', b'%02x%02x%04x' % (Page, OPCode, Value), delay)
+        Parsed = self.parse_get_parameter_replay(Answer)
+        if Parsed is None:
+            return None
+        (PageOut, OPCodeOut, Type, MaxValue, CurrentValue) = Parsed
+        if Page != PageOut or OPCode != OPCodeOut:
+            print("wrong page, opcode")
+#            return None
+        return (MaxValue, CurrentValue)
+
+    def extended_set_from_name(self, Name, Value, delay=0.08):
+        (Page, OPCode) = Name2PageOPCode[Name]
+        return self.extended_set(Page, OPCode, Value, delay)
+
+    def bcc(self, Vect):
+        Sum = 0
+        for b in Vect:
+            Sum ^= b
+        return Sum
+
+    def parse_get_parameter_replay(self, Message):
+        Result = int(Message[0:2], 16)
+        if Result != 0:
+            return None
+        Page = int(Message[2:4], 16)
+        OPCode = int(Message[4:6], 16)
+        Type = int(Message[6:8], 16)
+        MaxValue = int(Message[8:12], 16)
+        CurrentValue = int(Message[12:16], 16)
+        return (Page, OPCode, Type, MaxValue, CurrentValue)
+
+    def send_extended_cmd(self, Header, Message, delay=0.08):
+        Message = STX+Message+ETX
+        Header = STX+b'IYA'+Header+b'%02X' % len(Message)
+        Cmd = Header+Message
+        Cmd += bytes([self.bcc(Cmd[1:-1])])+b'\r'
+#        print(Cmd)
+        self.Ser.write(Cmd)
+        sleep(delay)
+        if self.Ser.in_waiting == 0:
+            print("no answer")
+            return None
+        Answer = self.Ser.read(self.Ser.in_waiting)
+        # note: BCC output by screen is fixed to x0e and obviously wrong
+#        BCCInput = Answer[1:-3]
+#        print(BCCInput)
+#        BCC = self.bcc(BCCInput)
+#        if BCC != Answer[-2]:
+#            print("wrong BCC %02x %02x" % (BCC, Answer[-2]))
+#            print(Answer)
+#        if Answer[:6] != STX+b'IYAAD':
+#            print("wrong header start %s" % Answer)
+        Len = int(Answer[6:8], 16)
+        if Len+2+8 != len(Answer):
+            print("wrong length")
+        return Answer[9:-3]
+
+
 if __name__ == '__main__':
     Screen = X4071("/dev/ttyUSB0")
 
@@ -214,3 +438,45 @@ if __name__ == '__main__':
 #        if not Screen.set_power(Option):
 #            print("Command failed!")
 #        sleep(14)  # needed according to spec
+
+#    for Page in range(256):
+#        print("_____%02x____" % Page)
+#        for k in range(256):
+#            if not Screen.extended_has_answer(Page, k):
+#                continue
+#            print("%02x" % k)
+
+    print("____extended command for page 00_____")
+    for (k, v) in Page00OPCode.items():
+        if v[1] == 0:
+            continue
+        Metric = Screen.extended_get(0x00, k)
+        if Metric is None:
+            print(v[0])
+            continue
+        (Max, Value) = Metric
+        print("%s %d / %d" % (v[0], Value, Max))
+
+    print("____extended command for page 02_____")
+    for (k, v) in Page02OPCode.items():
+        if v[1] == 0:
+            continue
+        Metric = Screen.extended_get(0x02, k)
+        if Metric is None:
+            print(v[0])
+            continue
+        (Max, Value) = Metric
+        print("%s %d / %d" % (v[0], Value, Max))
+
+    print("____extended command tests_____")
+    for BrightnessPercent in [99, 40]:
+        print("setting brightness to %d%%" % BrightnessPercent)
+        Screen.extended_set_from_name("brightness", BrightnessPercent)
+        sleep(1)
+
+    for (rl, bu) in [(0, 0), (0, 1), (1, 1), (1, 0)]:
+        Screen.extended_set_from_name("PIP right", rl, 1)
+        Screen.extended_set_from_name("PIP bottom", bu, 1)
+
+    Screen.extended_set_from_name("PIP PBP", 3, 1)
+#    Screen.extended_set_from_name("PIP bottom", 0, 1)
