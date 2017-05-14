@@ -94,6 +94,8 @@ LanguageCode = \
         11: "chinese (traditional)",
     }
 
+# note: 0 or 1 2nd argument indicates write only commands
+# note: some write only commands may be missing
 Page00OPCode = \
     {
         0x04: ("factory reset", 0),
@@ -104,9 +106,9 @@ Page00OPCode = \
         0x10: ("brightness", 1),
         0x12: ("contrast", 1),
         0x14: ("reserved", 0),
-        0x16: ("UNDOCUMENTED1", 1),
-        0x18: ("UNDOCUMENTED2", 1),
-        0x1a: ("UNDOCUMENTED3", 1),
+        0x16: ("user color red", 1),
+        0x18: ("user color green", 1),
+        0x1a: ("user color blue", 1),
         0x20: ("H position", 1),
         0x30: ("V position", 1),
         0x3e: ("clock phase", 1),
@@ -116,7 +118,7 @@ Page00OPCode = \
         0x8c: ("sharpness", 1),
         0x8d: ("mute", 1),
         0x92: ("black level", 0),
-        0xc9: ("UNDOCUMENTED4", 1),
+        0xc9: ("UNDOCUMENTED1", 1),
         0xe3: ("control lock", 1),
         0xfc: ("OSD turn off", 1),
     }
@@ -169,6 +171,7 @@ OSDRotationCode = \
         4: "180",
         5: "270",
     }
+Name2OSDRotation = dict(map(reversed, OSDRotationCode.items()))
 
 PIPCOde = \
     {
@@ -179,10 +182,10 @@ PIPCOde = \
 
 Page02OPCode = \
     {
-        0x1b: ("UNDOCUMENTED1", 1),
+        0x1b: ("UNDOCUMENTED2", 1),
         0x21: ("noise reduction", 0),
         0x22: ("color system", 0),
-        0x2f: ("UNDOCUMENTED2", 1),
+        0x2f: ("UNDOCUMENTED3", 1),
         0x39: ("OSD H position", 1),
         0x3a: ("OSD V position", 1),
         0x3f: ("monitor ID", 1),
@@ -378,7 +381,7 @@ class X4071():
             print("no answer")
             return None
         Answer = self.Ser.read(self.Ser.in_waiting)
-        # note: BCC output by screen is fixed to x0e and obviously wrong
+        # note: BCC output by screen is fixed to 0x0e and obviously wrong
 #        BCCInput = Answer[1:-3]
 #        print(BCCInput)
 #        BCC = self.bcc(BCCInput)
@@ -475,8 +478,7 @@ if __name__ == '__main__':
         sleep(1)
 
     for (rl, bu) in [(0, 0), (0, 1), (1, 1), (1, 0)]:
-        Screen.extended_set_from_name("PIP right", rl, 1)
-        Screen.extended_set_from_name("PIP bottom", bu, 1)
+        Screen.extended_set_from_name("PIP right", rl, 1.5)
+        Screen.extended_set_from_name("PIP bottom", bu, 1.5)
 
     Screen.extended_set_from_name("PIP PBP", 3, 1)
-#    Screen.extended_set_from_name("PIP bottom", 0, 1)
