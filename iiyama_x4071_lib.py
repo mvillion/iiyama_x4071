@@ -207,6 +207,34 @@ Page02OPCode = \
 for (k, v) in Page02OPCode.items():
     Name2PageOPCode[v[0]] = (0x02, k)
 
+# page 01 are commands
+Page01OPCode = \
+    {
+        0xd6: ("power status", 0),
+    }
+
+# page c2 are date and time commands
+# reply on page c3
+Pagec2OPCode = \
+    {
+        0x11: ("read datetime", 1),
+        0x12: ("write datetime", 0),
+        0x13: ("read schedule", 1),
+        0x14: ("write schedule", 0),
+        0x16: ("read serial number", 1),
+        0x17: ("read model name", 1),
+    }
+Name2CommandCode = {}
+for (k, v) in Pagec2OPCode.items():
+    Name2CommandCode[v[0]] = (0xc2, k)
+
+# command codes are single octet
+CommandCode = \
+    {
+        0x0c: "save current settings",
+        0xb1: "self diagnosis",
+    }
+
 
 class X4071():
     def __init__(self, TTY):
@@ -318,11 +346,11 @@ class X4071():
 
 # ______________________________________________________________________________
     def extended_has_answer(self, Page, OPCode):
-        Answer = self.send_extended_cmd(b'A0C', b'%02x%02x' % (Page, OPCode))
-        return Answer != b'BE'
+        Answer = self.send_extended_cmd(b"A0C", b"%02x%02x" % (Page, OPCode))
+        return Answer != b"BE"
 
     def extended_get(self, Page, OPCode):
-        Answer = self.send_extended_cmd(b'A0C', b'%02x%02x' % (Page, OPCode))
+        Answer = self.send_extended_cmd(b"A0C", b"%02x%02x" % (Page, OPCode))
         Parsed = self.parse_get_parameter_replay(Answer)
         if Parsed is None:
             return None
@@ -336,9 +364,18 @@ class X4071():
         (Page, OPCode) = Name2PageOPCode[Name]
         return self.extended_get(Page, OPCode)
 
+    def extended_command(self, Page, OPCode):
+        Answer = self.send_extended_cmd(b"A0A", b"%02x%02x" % (Page, OPCode))
+        return Answer
+
+    def extended_command_from_name(self, Name):
+        (_, OPCode) = Name2CommandCode[Name]
+        Answer = self.send_extended_cmd(b"A0A", b"c2%02x" % OPCode, 0.1)
+        return Answer
+
     def extended_set(self, Page, OPCode, Value, delay=0.08):
         Answer = self.send_extended_cmd(
-            b'A0E', b'%02x%02x%04x' % (Page, OPCode, Value), delay)
+            b"A0E", b"%02x%02x%04x" % (Page, OPCode, Value), delay)
         Parsed = self.parse_get_parameter_replay(Answer)
         if Parsed is None:
             return None
@@ -371,7 +408,7 @@ class X4071():
 
     def send_extended_cmd(self, Header, Message, delay=0.08):
         Message = STX+Message+ETX
-        Header = STX+b'IYA'+Header+b'%02X' % len(Message)
+        Header = STX+b"IYA"+Header+b"%02X" % len(Message)
         Cmd = Header+Message
         Cmd += bytes([self.bcc(Cmd[1:-1])])+b'\r'
 #        print(Cmd)
@@ -381,6 +418,9 @@ class X4071():
             print("no answer")
             return None
         Answer = self.Ser.read(self.Ser.in_waiting)
+        if len(Answer) == 0:
+            print("no answer2")
+            return None
         # note: BCC output by screen is fixed to 0x0e and obviously wrong
 #        BCCInput = Answer[1:-3]
 #        print(BCCInput)
@@ -395,6 +435,19 @@ class X4071():
             print("wrong length")
         return Answer[9:-3]
 
+    def read_serial_number(self):
+        Cmd = "read serial number"
+        Answer = self.extended_command_from_name(Cmd)
+        if Answer[:4] != b"C3%02X" % Name2CommandCode[Cmd][1]:
+            return "<wrong serial number>"
+        return Answer[4:]
+
+    def read_model_name(self):
+        Cmd = "read model name"
+        Answer = self.extended_command_from_name(Cmd)
+        if Answer[:4] != b"C3%02X" % Name2CommandCode[Cmd][1]:
+            return "<wrong model name>"
+        return Answer[4:]
 
 if __name__ == '__main__':
     Screen = X4071("/dev/ttyUSB0")
@@ -471,12 +524,26 @@ if __name__ == '__main__':
         (Max, Value) = Metric
         print("%s %d / %d" % (v[0], Value, Max))
 
+#    print("____extended command for page c2_____")
+#    for (k, v) in Pagec2OPCode.items():
+#        if v[1] == 0:
+#            continue
+#        Metric = Screen.extended_command(0xc2, k)
+#        if Metric is None:
+#            print(v[0])
+#            continue
+#        print("%s %s" % (v[0], Metric))
+
     print("____extended command tests_____")
     for BrightnessPercent in [99, 40]:
         print("setting brightness to %d%%" % BrightnessPercent)
         Screen.extended_set_from_name("brightness", BrightnessPercent)
         sleep(1)
 
+    print("serial number is %s" % Screen.read_serial_number().decode("utf-8"))
+    print("model name is %s" % Screen.read_model_name().decode("utf-8"))
+
+    # circle on PIP positions
     for (rl, bu) in [(0, 0), (0, 1), (1, 1), (1, 0)]:
         Screen.extended_set_from_name("PIP right", rl, 1.5)
         Screen.extended_set_from_name("PIP bottom", bu, 1.5)
