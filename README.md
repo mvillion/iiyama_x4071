@@ -1,5 +1,5 @@
 # iiyama_x4071
-Python code to use RS 323 connection of iiyama X4071 screen
+Python code to use RS 232 connection of iiyama X4071 screen
 
 iiyama X4071 screen comes with a serial port cable.
 Using a USB to serial adapter, it is possible to get some status information and control some of the features of the screen.
