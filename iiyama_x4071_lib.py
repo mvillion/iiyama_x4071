@@ -118,7 +118,7 @@ Page00OPCode = \
         0x8c: ("sharpness", 1),
         0x8d: ("mute", 1),
         0x92: ("black level", 0),
-        0xc9: ("UNDOCUMENTED1", 1),
+        0xc9: ("Firmware version", 1),
         0xe3: ("control lock", 1),
         0xfc: ("OSD turn off", 1),
     }
@@ -182,10 +182,10 @@ PIPCOde = \
 
 Page02OPCode = \
     {
-        0x1b: ("UNDOCUMENTED2", 1),
+        0x1b: ("Picture Mode", 1),
         0x21: ("noise reduction", 0),
         0x22: ("color system", 0),
-        0x2f: ("UNDOCUMENTED3", 1),
+        0x2f: ("Audio input", 1),
         0x39: ("OSD H position", 1),
         0x3a: ("OSD V position", 1),
         0x3f: ("monitor ID", 1),
