@@ -11,6 +11,7 @@ import sys
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QMessageBox
+from iiyama_x4071_lib import InputExtCode
 from iiyama_x4071_lib import ONOFFCode
 from iiyama_x4071_lib import X4071
 
@@ -43,12 +44,25 @@ def main():
     if Command in ["mute"]:
         if not Screen.send_remote(Command):
             print("Command failed!")
-        (_, Value) = Screen.extended_get_from_name(Command)
+        (_, Value) = Screen.ext_get_from_name(Command)
         MessageStr = "%s %s" % (Command, ONOFFCode[Value == 1])
+    if Command in ["pip_preset_on"]:
+        Screen.ext_get_set_from_name("input", InputExtCode[sys.argv[2]], 0.5)
+        Screen.ext_get_set_from_name("Audio input", 4, 0.5)
+        Screen.ext_get_set_from_name("PIP right", 1, 0.5)
+        Screen.ext_get_set_from_name("PIP bottom", 0, 0.5)
+        Screen.ext_get_set_from_name(
+            "PIP input", InputExtCode[sys.argv[3]], 0.5)
+        Screen.ext_get_set_from_name("PIP PBP", 1, 1)
+        MessageStr = Command
+    if Command in ["pip_preset_off"]:
+        Screen.ext_get_set_from_name("PIP PBP", 0, 1.5)
+        Screen.ext_get_set_from_name("input", InputExtCode[sys.argv[2]], 0.5)
+        MessageStr = Command
     elif Command in ["vol+", "vol-"]:
         if not Screen.send_remote(Command):
             print("Command failed!")
-        (_, Value) = Screen.extended_get_from_name("volume")
+        (_, Value) = Screen.ext_get_from_name("volume")
         MessageStr = "Volume %d%%" % Value
 
     messagebox = TimerMessageBox(MessageStr, 2)

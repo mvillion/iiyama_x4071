@@ -64,19 +64,19 @@ ONOFFCode = \
 STX = b'\x02'
 ETX = b'\x03'
 
-InptuExtCode = \
+InputExtCode = \
     {
-        0: "no mean",
-        1: "D-SUB",
-        2: "Reserved",
-        3: "HDMI1",
-        4: "HDMI3",
-        5: "composite",
-        7: "S-video",
-        8: "option",
-        9: "DisplayPort",
-        12: "YPbPr",
-        18: "HDMI2",
+        "no_mean": 0,
+        "D-SUB": 1,
+        "Reserved": 2,
+        "HDMI1": 3,
+        "HDMI3": 4,
+        "composite": 5,
+        "S-video": 7,
+        "option": 8,
+        "DisplayPort": 9,
+        "YPbPr": 12,
+        "HDMI2": 18,
     }
 
 LanguageCode = \
@@ -381,12 +381,12 @@ class X4071():
         return Cmd == Answer
 
 # ______________________________________________________________________________
-    def extended_has_answer(self, Page, OPCode):
-        Answer = self.send_extended_cmd(b"A0C", b"%02x%02x" % (Page, OPCode))
+    def ext_has_answer(self, Page, OPCode):
+        Answer = self.send_ext_cmd(b"A0C", b"%02x%02x" % (Page, OPCode))
         return Answer != b"BE"
 
-    def extended_get(self, Page, OPCode):
-        Answer = self.send_extended_cmd(b"A0C", b"%02x%02x" % (Page, OPCode))
+    def ext_get(self, Page, OPCode):
+        Answer = self.send_ext_cmd(b"A0C", b"%02x%02x" % (Page, OPCode))
         Parsed = self.parse_get_parameter_replay(Answer)
         if Parsed is None:
             return None
@@ -396,21 +396,21 @@ class X4071():
 #            return None
         return (MaxValue, CurrentValue)
 
-    def extended_get_from_name(self, Name):
+    def ext_get_from_name(self, Name):
         (Page, OPCode) = Name2PageOPCode[Name]
-        return self.extended_get(Page, OPCode)
+        return self.ext_get(Page, OPCode)
 
-    def extended_command(self, Page, OPCode):
-        Answer = self.send_extended_cmd(b"A0A", b"%02x%02x" % (Page, OPCode))
+    def ext_command(self, Page, OPCode):
+        Answer = self.send_ext_cmd(b"A0A", b"%02x%02x" % (Page, OPCode))
         return Answer
 
-    def extended_command_from_name(self, Name):
+    def ext_command_from_name(self, Name):
         (_, OPCode) = Name2CommandCode[Name]
-        Answer = self.send_extended_cmd(b"A0A", b"c2%02x" % OPCode, 0.1)
+        Answer = self.send_ext_cmd(b"A0A", b"c2%02x" % OPCode, 0.1)
         return Answer
 
-    def extended_set(self, Page, OPCode, Value, delay=0.08):
-        Answer = self.send_extended_cmd(
+    def ext_set(self, Page, OPCode, Value, delay=0.08):
+        Answer = self.send_ext_cmd(
             b"A0E", b"%02x%02x%04x" % (Page, OPCode, Value), delay)
         Parsed = self.parse_get_parameter_replay(Answer)
         if Parsed is None:
@@ -421,9 +421,25 @@ class X4071():
 #            return None
         return (MaxValue, CurrentValue)
 
-    def extended_set_from_name(self, Name, Value, delay=0.08):
+    def ext_set_from_name(self, Name, Value, delay=0.08):
         (Page, OPCode) = Name2PageOPCode[Name]
-        return self.extended_set(Page, OPCode, Value, delay)
+        return self.ext_set(Page, OPCode, Value, delay)
+
+    def ext_get_set_from_name(self, Name, Value, delay=0.08):
+        Metric = self.ext_get_from_name(Name)
+        if Metric is None:
+            return False
+        (Max, ReadValue) = Metric
+        print("%s %d / %d" % (Name, ReadValue, Max))
+        if ReadValue == Value:
+            return True
+        Metric = self.ext_set_from_name(Name, Value, delay=delay)
+        if Metric is None:
+            return False
+        (Max, ReadValue) = Metric
+        print("%s %d / %d" % (Name, ReadValue, Max))
+        if ReadValue == Value:
+            return True
 
     def bcc(self, Vect):
         Sum = 0
@@ -442,7 +458,7 @@ class X4071():
         CurrentValue = int(Message[12:16], 16)
         return (Page, OPCode, Type, MaxValue, CurrentValue)
 
-    def send_extended_cmd(self, Header, Message, delay=0.08):
+    def send_ext_cmd(self, Header, Message, delay=0.08):
         Message = STX+Message+ETX
         Header = STX+b"IYA"+Header+b"%02X" % len(Message)
         Cmd = Header+Message
@@ -473,14 +489,14 @@ class X4071():
 
     def read_serial_number(self):
         Cmd = "read serial number"
-        Answer = self.extended_command_from_name(Cmd)
+        Answer = self.ext_command_from_name(Cmd)
         if Answer[:4] != b"C3%02X" % Name2CommandCode[Cmd][1]:
             return "<wrong serial number>"
         return Answer[4:]
 
     def read_model_name(self):
         Cmd = "read model name"
-        Answer = self.extended_command_from_name(Cmd)
+        Answer = self.ext_command_from_name(Cmd)
         if Answer[:4] != b"C3%02X" % Name2CommandCode[Cmd][1]:
             return "<wrong model name>"
         return Answer[4:]
@@ -534,7 +550,7 @@ if __name__ == '__main__':
 #    for Page in range(256):
 #        print("_____%02x____" % Page)
 #        for k in range(256):
-#            if not Screen.extended_has_answer(Page, k):
+#            if not Screen.ext_has_answer(Page, k):
 #                continue
 #            print("%02x" % k)
 
@@ -542,7 +558,7 @@ if __name__ == '__main__':
     for (k, v) in Page00OPCode.items():
         if v[1] == 0:
             continue
-        Metric = Screen.extended_get(0x00, k)
+        Metric = Screen.ext_get(0x00, k)
         if Metric is None:
             print(v[0])
             continue
@@ -553,7 +569,7 @@ if __name__ == '__main__':
     for (k, v) in Page02OPCode.items():
         if v[1] == 0:
             continue
-        Metric = Screen.extended_get(0x02, k)
+        Metric = Screen.ext_get(0x02, k)
         if Metric is None:
             print(v[0])
             continue
@@ -564,24 +580,24 @@ if __name__ == '__main__':
 #    for (k, v) in Pagec2OPCode.items():
 #        if v[1] == 0:
 #            continue
-#        Metric = Screen.extended_command(0xc2, k)
+#        Metric = Screen.ext_command(0xc2, k)
 #        if Metric is None:
 #            print(v[0])
 #            continue
 #        print("%s %s" % (v[0], Metric))
 
-    print("____extended command tests_____")
-    for BrightnessPercent in [99, 40]:
-        print("setting brightness to %d%%" % BrightnessPercent)
-        Screen.extended_set_from_name("brightness", BrightnessPercent)
-        sleep(1)
+#    print("____extended command tests_____")
+#    for BrightnessPercent in [99, 40]:
+#        print("setting brightness to %d%%" % BrightnessPercent)
+#        Screen.ext_set_from_name("brightness", BrightnessPercent)
+#        sleep(1)
 
     print("serial number is %s" % Screen.read_serial_number().decode("utf-8"))
     print("model name is %s" % Screen.read_model_name().decode("utf-8"))
 
-    # circle on PIP positions
-    for (rl, bu) in [(0, 0), (0, 1), (1, 1), (1, 0)]:
-        Screen.extended_set_from_name("PIP right", rl, 1.5)
-        Screen.extended_set_from_name("PIP bottom", bu, 1.5)
-
-    Screen.extended_set_from_name("PIP PBP", 3, 1)
+#    # circle on PIP positions
+#    for (rl, bu) in [(0, 0), (0, 1), (1, 1), (1, 0)]:
+#        Screen.ext_set_from_name("PIP right", rl, 1.5)
+#        Screen.ext_set_from_name("PIP bottom", bu, 1.5)
+#
+#    Screen.ext_set_from_name("PIP PBP", 2, 1)
