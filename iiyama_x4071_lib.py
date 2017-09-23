@@ -5,8 +5,8 @@ Created on Sat May 13 17:55:52 2017
 
 @author: Mathieu Villion
 """
-
 from serial import Serial
+from subprocess import check_output
 from time import sleep
 
 InputCode = \
@@ -272,6 +272,17 @@ CommandCode = \
     }
 
 
+def get_screen_size():
+    return check_output("xrandr | grep '*'", shell=True).split()[0]
+
+
+def set_screen_size(SizeStr):
+    if get_screen_size().decode() == SizeStr:
+        print("skip resizing")
+    return check_output(
+        "xrandr -q --output HDMI-0 --mode %s" % SizeStr, shell=True)
+
+
 class X4071():
     def __init__(self, TTY):
         self.Ser = Serial(TTY, 9600, timeout=1)
@@ -501,8 +512,12 @@ class X4071():
             return "<wrong model name>"
         return Answer[4:]
 
+
 if __name__ == '__main__':
     Screen = X4071("/dev/ttyUSB0")
+
+    print("Screen size is %s" % get_screen_size().decode())
+    set_screen_size("3840x2160")
 
     print("Screen is %s" % ONOFFCode[Screen.is_power_on()])
     print("Input is %s" % Screen.get_input_name())
@@ -512,28 +527,28 @@ if __name__ == '__main__':
         "Lock key control is %s" % ONOFFCode[Screen.is_local_key_control_on()])
     print("Lock IR control is %s" % ONOFFCode[Screen.is_read_ir_control_on()])
 
-    for BrightnessPercent in [99, 40]:
-        print("setting brightness to %d%%" % BrightnessPercent)
-        Screen.set_brightness(BrightnessPercent)
-        sleep(1)
-
-    Option = True
-    print("set IR control %d" % Option)
-    if not Screen.set_ir_control(Option):
-        print("Command failed!")
-    sleep(1)
-
-    Option = True
-    print("set local key control %d" % Option)
-    if not Screen.set_local_key_control(Option):
-        print("Command failed!")
-    sleep(1)
-
-    for Option in ["mute", "vol+", "vol-"]:
-        print("sending remote option %s" % Option)
-        if not Screen.send_remote(Option):
-            print("Command failed!")
-        sleep(1)
+#    for BrightnessPercent in [99, 40]:
+#        print("setting brightness to %d%%" % BrightnessPercent)
+#        Screen.set_brightness(BrightnessPercent)
+#        sleep(1)
+#
+#    Option = True
+#    print("set IR control %d" % Option)
+#    if not Screen.set_ir_control(Option):
+#        print("Command failed!")
+#    sleep(1)
+#
+#    Option = True
+#    print("set local key control %d" % Option)
+#    if not Screen.set_local_key_control(Option):
+#        print("Command failed!")
+#    sleep(1)
+#
+#    for Option in ["mute", "vol+", "vol-"]:
+#        print("sending remote option %s" % Option)
+#        if not Screen.send_remote(Option):
+#            print("Command failed!")
+#        sleep(1)
 
 #    for Option in ["HDMI3", "HDMI1"]:
 #        print("setting input to %s" % Option)
